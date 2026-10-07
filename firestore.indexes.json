@@ -1,0 +1,69 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "jumantikReports",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "regionId", "order": "ASCENDING" },
+        { "fieldPath": "date", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "jumantikReports",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "rwId", "order": "ASCENDING" },
+        { "fieldPath": "date", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "jumantikReports",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "inspectorId", "order": "ASCENDING" },
+        { "fieldPath": "date", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "properties",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "regionId", "order": "ASCENDING" },
+        { "fieldPath": "address", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "properties",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "rwId", "order": "ASCENDING" },
+        { "fieldPath": "address", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "properties",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "ownerUid", "order": "ASCENDING" },
+        { "fieldPath": "address", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "dbdCases",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "rwId", "order": "ASCENDING" },
+        { "fieldPath": "reportedAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "regions",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "rwId", "order": "ASCENDING" },
+        { "fieldPath": "rt", "order": "ASCENDING" }
+      ]
+    }
+  ],
+  "fieldOverrides": []
+}

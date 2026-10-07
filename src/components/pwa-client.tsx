@@ -5,6 +5,7 @@ import { Download, WifiOff } from "lucide-react";
 import { getFirebaseAuth } from "@/lib/firebase-client";
 import { getPendingReports, removePendingReport } from "@/lib/offline-reports";
 import { onAuthStateChanged } from "firebase/auth";
+import { saveOfflineReportToFirestore } from "@/lib/jumantik-firestore";
 
 type InstallPromptEvent = Event & {
   prompt: () => Promise<void>;
@@ -50,31 +51,15 @@ export default function PwaClient() {
         const auth = getFirebaseAuth();
         const user = auth.currentUser;
         if (!user) return;
-        const token = await user.getIdToken();
         const reports = await getPendingReports();
         for (const report of reports) {
-          const response = await fetch("/api/reports", {
-            method: "POST",
-            headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-            body: JSON.stringify(report)
-          });
-          if (response.status === 401 || response.status === 403) {
-            setSyncNotice("Login atau akses wilayah tidak sesuai; laporan tetap tersimpan.");
-            break;
-          }
-          if (!response.ok) {
-            const details = await response.json().catch(() => ({}));
-            console.error("Offline report sync failed:", response.status, details);
-            setSyncNotice("Sinkronisasi gagal; laporan tetap tersimpan untuk dicoba lagi.");
-            break;
-          }
+          await saveOfflineReportToFirestore(report);
           await removePendingReport(report.localId);
           setSyncNotice("");
         }
       } catch (error) {
-        if (!(error instanceof Error && error.message.includes("configuration is missing"))) {
-          console.error("Offline report sync failed:", error);
-        }
+        console.error("Offline report sync failed:", error);
+        setSyncNotice(error instanceof Error ? error.message : "Sinkronisasi gagal; laporan tetap tersimpan untuk dicoba lagi.");
       } finally {
         syncing = false;
         await refreshPendingCount();

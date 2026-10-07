@@ -1,9 +1,189 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Application reads and writes go through the authenticated server API.
-    match /{document=**} {
-      allow read, write: if false;
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function role(value) {
+      return signedIn() && request.auth.token.role == value;
+    }
+
+    function admin() {
+      return role('ADMIN_KELURAHAN');
+    }
+
+    function rwManager() {
+      return role('KETUA_RW');
+    }
+
+    function canReadArea(regionId, rwId) {
+      return admin()
+        || (rwManager() && request.auth.token.rwId == rwId)
+        || (signedIn() && request.auth.token.regionId == regionId);
+    }
+
+    function canManageArea(regionId, rwId) {
+      return admin()
+        || (rwManager() && request.auth.token.rwId == rwId);
+    }
+
+    function validCount(value) {
+      return value is int && value >= 0;
+    }
+
+    function validCategory(value) {
+      return value is map
+        && value.keys().hasOnly(['checked', 'positive'])
+        && value.keys().hasAll(['checked', 'positive'])
+        && validCount(value.checked)
+        && validCount(value.positive)
+        && value.positive <= value.checked;
+    }
+
+    function validReport(data) {
+      return data.keys().hasOnly([
+          'localId', 'regionId', 'rwId', 'kelurahan', 'rt', 'inspectorId',
+          'inspectorName', 'weekNumber', 'date', 'categories', 'totalChecked',
+          'totalPositive', 'totalNegative', 'abjScore', 'status', 'coordinates',
+          'capturedAt', 'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasAll([
+          'localId', 'regionId', 'rwId', 'kelurahan', 'rt', 'inspectorId',
+          'weekNumber', 'date', 'categories', 'totalChecked', 'totalPositive',
+          'totalNegative', 'abjScore', 'status', 'createdAt', 'updatedAt'
+        ])
+        && data.inspectorId == request.auth.uid
+        && data.regionId is string
+        && data.rwId is string
+        && canReadArea(data.regionId, data.rwId)
+        && data.weekNumber is int
+        && data.weekNumber >= 1
+        && data.weekNumber <= 53
+        && data.date is timestamp
+        && data.categories is map
+        && data.categories.keys().hasOnly([
+          'permukiman', 'institusi', 'tempatKerja', 'ttu', 'tpm', 'sarana'
+        ])
+        && data.categories.keys().hasAll([
+          'permukiman', 'institusi', 'tempatKerja', 'ttu', 'tpm', 'sarana'
+        ])
+        && validCategory(data.categories.permukiman)
+        && validCategory(data.categories.institusi)
+        && validCategory(data.categories.tempatKerja)
+        && validCategory(data.categories.ttu)
+        && validCategory(data.categories.tpm)
+        && validCategory(data.categories.sarana)
+        && validCount(data.totalChecked)
+        && validCount(data.totalPositive)
+        && validCount(data.totalNegative)
+        && data.totalChecked > 0
+        && data.totalChecked ==
+          data.categories.permukiman.checked
+          + data.categories.institusi.checked
+          + data.categories.tempatKerja.checked
+          + data.categories.ttu.checked
+          + data.categories.tpm.checked
+          + data.categories.sarana.checked
+        && data.totalPositive ==
+          data.categories.permukiman.positive
+          + data.categories.institusi.positive
+          + data.categories.tempatKerja.positive
+          + data.categories.ttu.positive
+          + data.categories.tpm.positive
+          + data.categories.sarana.positive
+        && data.totalPositive <= data.totalChecked
+        && data.totalNegative == data.totalChecked - data.totalPositive
+        && data.abjScore is number
+        && data.abjScore >= 0
+        && data.abjScore <= 100
+        && data.abjScore >= (data.totalNegative * 100.0 / data.totalChecked) - 0.01
+        && data.abjScore <= (data.totalNegative * 100.0 / data.totalChecked) + 0.01
+        && data.status == 'SUBMITTED';
+    }
+
+    match /regions/{regionId} {
+      allow read: if admin()
+        || (rwManager() && resource.data.rwId == request.auth.token.rwId)
+        || (signedIn() && regionId == request.auth.token.regionId);
+      allow create, update, delete: if admin();
+    }
+
+    match /jumantikReports/{reportId} {
+      allow read: if admin()
+        || (rwManager() && request.auth.token.rwId == resource.data.rwId)
+        || (role('KADER') && request.auth.token.regionId == resource.data.regionId)
+        || (role('WARGA') && resource.data.inspectorId == request.auth.uid);
+      allow create: if signedIn()
+        && request.resource.data.localId == reportId
+        && validReport(request.resource.data);
+      allow update: if signedIn()
+        && canManageArea(resource.data.regionId, resource.data.rwId)
+        && request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['status', 'signatureUrl', 'verifiedBy', 'verifiedAt', 'updatedAt'])
+        && request.resource.data.status in ['VERIFIED', 'NEEDS_REVISION'];
+      allow delete: if admin();
+    }
+
+    match /properties/{propertyId} {
+      allow read: if admin()
+        || (rwManager() && request.auth.token.rwId == resource.data.rwId)
+        || (role('KADER') && request.auth.token.regionId == resource.data.regionId)
+        || (role('WARGA') && resource.data.ownerUid == request.auth.uid);
+      allow create: if signedIn()
+        && canManageArea(request.resource.data.regionId, request.resource.data.rwId)
+        && request.resource.data.keys().hasOnly([
+          'qrCode', 'type', 'ownerName', 'address', 'regionId', 'rwId',
+          'kelurahan', 'rt', 'ownerUid', 'coordinates', 'createdAt', 'updatedAt'
+        ])
+        && request.resource.data.keys().hasAll([
+          'qrCode', 'type', 'ownerName', 'address', 'regionId', 'rwId', 'rt'
+        ])
+        && request.resource.data.qrCode is string
+        && request.resource.data.ownerName is string
+        && request.resource.data.address is string;
+      allow update: if signedIn()
+        && canManageArea(resource.data.regionId, resource.data.rwId)
+        && request.resource.data.regionId == resource.data.regionId
+        && request.resource.data.rwId == resource.data.rwId
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'ownerName', 'address', 'type', 'ownerUid', 'coordinates', 'updatedAt'
+        ]);
+      allow delete: if admin();
+    }
+
+    match /dbdCases/{caseId} {
+      allow read: if admin()
+        || (rwManager() && request.auth.token.rwId == resource.data.rwId);
+      allow create: if signedIn()
+        && canManageArea(request.resource.data.regionId, request.resource.data.rwId)
+        && request.resource.data.keys().hasOnly([
+          'caseCode', 'patientInitials', 'regionId', 'rwId', 'kelurahan', 'rt',
+          'reportedAt', 'status', 'notes', 'coordinates', 'createdBy',
+          'createdAt', 'updatedAt'
+        ])
+        && request.resource.data.keys().hasAll([
+          'caseCode', 'regionId', 'rwId', 'rt', 'reportedAt', 'status', 'createdBy'
+        ])
+        && request.resource.data.createdBy == request.auth.uid
+        && request.resource.data.patientInitials is string
+        && request.resource.data.patientInitials.size() <= 12
+        && request.resource.data.status == 'REPORTED';
+      allow update: if signedIn()
+        && canManageArea(resource.data.regionId, resource.data.rwId)
+        && request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['status', 'notes', 'updatedAt', 'verifiedBy', 'verifiedAt'])
+        && request.resource.data.verifiedBy == request.auth.uid
+        && request.resource.data.status in [
+          'VERIFIED', 'MONITORING', 'FOGGING_SCHEDULED', 'CLOSED'
+        ];
+      allow delete: if admin();
+    }
+
+    match /users/{userId} {
+      allow read: if signedIn()
+        && (request.auth.uid == userId || admin());
+      allow write: if false;
     }
   }
 }
