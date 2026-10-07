@@ -1,0 +1,14 @@
+node_modules
+.next
+.vercel
+.firebase
+out
+coverage
+.env
+.env.*
+!.env.example
+*.log
+firebase-debug.log
+service-account*.json
+*-firebase-adminsdk-*.json
+prisma/*.db

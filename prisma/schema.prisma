@@ -1,0 +1,137 @@
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  extensions = [postgis]
+}
+
+enum UserRole {
+  KADER
+  KETUA_RW
+  ADMIN_KELURAHAN
+  WARGA
+}
+
+enum PropertyType {
+  PERMUKIMAN
+  INSTITUSI_PENDIDIKAN
+  TEMPAT_KERJA
+  TTU
+  TPM
+  SARANA_OLAHRAGA_KESEHATAN
+}
+
+enum ReportStatus {
+  DRAFT
+  SUBMITTED
+  VERIFIED
+  NEEDS_REVISION
+}
+
+enum DbdCaseStatus {
+  REPORTED
+  VERIFIED
+  FOGGING_SCHEDULED
+  CLOSED
+}
+
+model User {
+  id        String   @id @default(cuid())
+  name      String
+  email     String   @unique
+  role      UserRole
+  phone     String?
+  rt_id     String?
+  rw_id     String?
+  region_id String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  region  Region?          @relation(fields: [region_id], references: [id])
+  reports JumantikReport[] @relation("ReportInspector")
+
+  @@index([rt_id, rw_id])
+  @@index([region_id])
+}
+
+model Region {
+  id        String   @id @default(cuid())
+  kelurahan String
+  kecamatan String
+  rw        String
+  rt        String
+  createdAt DateTime @default(now())
+
+  users      User[]
+  properties Property[]
+  reports    JumantikReport[]
+
+  @@unique([kelurahan, rw, rt])
+  @@index([kecamatan, kelurahan])
+}
+
+model Property {
+  id            String       @id @default(cuid())
+  qr_code       String       @unique
+  type          PropertyType
+  owner_name    String
+  address       String
+  location_point Unsupported("geometry(Point, 4326)")?
+  region_id     String?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  region Region? @relation(fields: [region_id], references: [id])
+
+  @@index([region_id])
+}
+
+model JumantikReport {
+  id                    String       @id @default(cuid())
+  inspector_id          String
+  region_id             String
+  week_number           Int
+  date                  DateTime
+  permukiman_checked    Int          @default(0)
+  permukiman_positive   Int          @default(0)
+  institusi_checked     Int          @default(0)
+  institusi_positive    Int          @default(0)
+  tempat_kerja_checked  Int          @default(0)
+  tempat_kerja_positive Int          @default(0)
+  ttu_checked           Int          @default(0)
+  ttu_positive          Int          @default(0)
+  tpm_checked           Int          @default(0)
+  tpm_positive          Int          @default(0)
+  sarana_checked        Int          @default(0)
+  sarana_positive       Int          @default(0)
+  total_checked         Int          @default(0)
+  total_negative        Int          @default(0)
+  total_positive        Int          @default(0)
+  abj_score             Decimal      @default(0) @db.Decimal(5, 2)
+  status                ReportStatus @default(DRAFT)
+  signature_url         String?
+  createdAt             DateTime     @default(now())
+  updatedAt             DateTime     @updatedAt
+
+  inspector User   @relation("ReportInspector", fields: [inspector_id], references: [id])
+  region    Region @relation(fields: [region_id], references: [id])
+
+  @@unique([region_id, week_number, date])
+  @@index([date, status])
+  @@index([region_id, date])
+}
+
+model DbdCase {
+  id            String        @id @default(cuid())
+  patient_name  String
+  location_point Unsupported("geometry(Point, 4326)")?
+  status        DbdCaseStatus @default(REPORTED)
+  reported_at   DateTime      @default(now())
+  createdAt     DateTime      @default(now())
+
+  @@index([reported_at, status])
+}
