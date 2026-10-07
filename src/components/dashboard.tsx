@@ -33,6 +33,7 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import ReportCapture from "@/components/report-capture";
+import SectionPages from "@/components/section-pages";
 
 const navGroups = [
   {
@@ -208,7 +209,7 @@ export default function Dashboard() {
                 aria-label="Cari wilayah"
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
-                placeholder="Cari wilayah..."
+                placeholder="Cari di halaman..."
                 className="w-[115px] bg-transparent text-[10px] text-slate-600 outline-none placeholder:text-slate-400"
               />
             </label>
@@ -218,13 +219,8 @@ export default function Dashboard() {
           </div>
         </header>
 
-        {active !== "Dashboard" && (
-          <div className="soft-card mt-7 rounded-2xl p-5 text-sm text-slate-600">
-            Tampilan <span className="font-bold text-emerald-800">{active}</span> siap dikembangkan. Ringkasan dashboard tetap tersedia pada menu Dashboard.
-            <button onClick={() => setActive("Dashboard")} className="ml-2 font-bold text-emerald-700 underline underline-offset-2">Kembali</button>
-          </div>
-        )}
-
+        {active === "Dashboard" ? (
+          <>
         <section className="mt-6 grid gap-4 overflow-hidden rounded-[24px] bg-gradient-to-br from-[#087b56] via-[#08724f] to-[#07553f] px-6 py-6 text-white shadow-[0_18px_42px_rgba(5,95,70,.18)] sm:px-8 sm:py-7 lg:grid-cols-[1fr_auto] lg:items-center">
           <div className="relative z-10 max-w-[590px]">
             <div className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[9px] font-bold uppercase tracking-[1.1px] text-emerald-50/90 backdrop-blur"><Sparkles size={11} /> Ringkasan wilayah</div>
@@ -343,6 +339,15 @@ export default function Dashboard() {
             <button onClick={() => notify("Semua aktivitas ditampilkan")} className="mt-4 flex w-full items-center justify-center gap-1 rounded-xl border border-slate-100 py-2.5 text-[9px] font-bold text-slate-500 hover:border-emerald-100 hover:bg-emerald-50/50 hover:text-emerald-700">Lihat semua aktivitas <ArrowRight size={12} /></button>
           </article>
         </section>
+          </>
+        ) : (
+          <SectionPages
+            active={active}
+            query={query}
+            onCreateReport={() => setReportOpen(true)}
+            notify={notify}
+          />
+        )}
 
         <footer className="mt-6 flex flex-wrap items-center justify-between gap-2 px-1 text-[9px] text-slate-400"><span>© 2024 Jumantik Online · Sistem Digitalisasi Kelurahan</span><span className="flex items-center gap-1.5"><span className="h-1.5 w-1.5 rounded-full bg-emerald-500" /> Semua data tersinkronisasi <Check size={11} className="text-emerald-600" /></span></footer>
       </main>
